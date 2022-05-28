@@ -72,9 +72,12 @@ func run() (err error) {
 		return
 	}
 
+	n := 0
+
 	err = ws.On("response", func(c *gosocketio.Channel, reply Reply) {
-		log.Printf("response %#v", reply)
+		log.Printf("response %d %#v", n, reply)
 		wg.Done()
+		n++
 	})
 	if err != nil {
 		return
@@ -97,7 +100,7 @@ func run() (err error) {
 	cid2 := uuid.MustParse("e9abcaa0-9cc9-4a70-a97e-bb8a7758917f")
 	cid3 := uuid.MustParse("3e7ddb68-a3c4-46e2-a721-e0e4c228732e")
 
-	for i := 0; i < 99; i++ {
+	for i := 0; i < 66; i++ {
 		wg.Add(1)
 
 		err = ws.Emit("query", Query{
