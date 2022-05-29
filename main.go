@@ -72,12 +72,15 @@ func run() (err error) {
 		return
 	}
 
-	n := 0
+	n, e := 0, 0
 
 	err = ws.On("response", func(c *gosocketio.Channel, reply Reply) {
 		log.Printf("response %d %#v", n, reply)
-		wg.Done()
+		if reply.Error != nil {
+			e++
+		}
 		n++
+		wg.Done()
 	})
 	if err != nil {
 		return
@@ -95,38 +98,44 @@ func run() (err error) {
 
 	wg.Wait()
 
-	gid1 := uuid.MustParse("80d5bde7-827f-42fb-bd8a-8f8a7835d9bc")
+	gid1 := uuid.MustParse("818ed602-54bb-4a31-a70c-76558000ef6a")
 	cid1 := uuid.MustParse("08763fc1-a644-4004-ad87-8fc69e3fc7c5")
 	cid2 := uuid.MustParse("e9abcaa0-9cc9-4a70-a97e-bb8a7758917f")
 	cid3 := uuid.MustParse("3e7ddb68-a3c4-46e2-a721-e0e4c228732e")
 
-	for i := 0; i < 66; i++ {
-		wg.Add(1)
+	{
+		for i := 0; i < 99; i++ {
+			wg.Add(1)
 
-		err = ws.Emit("query", Query{
-			Id:     uuid.New(),
-			Method: "updateCodecGroup",
-			Params: UpdateCodecGroupParams{
-				Id:          gid1,
-				Name:        "default-audio-codec-group",
-				Type:        "audio",
-				DtmfRfc2833: true,
-				DtmfInband:  false,
-				DtmfSipInfo: false,
-				Codecs: func(uuids ...uuid.UUID) []uuid.UUID {
-					sort.Slice(uuids, func(i, j int) bool {
-						return rand.Int()&1 == 1
-					})
-					return uuids
-				}(cid1, cid2, cid3),
-			},
-		})
-		if err != nil {
-			return
+			err = ws.Emit("query", Query{
+				Id:     uuid.New(),
+				Method: "updateCodecGroup",
+				Params: UpdateCodecGroupParams{
+					Id:          gid1,
+					Name:        "default-audio-codec-group",
+					Type:        "audio",
+					DtmfRfc2833: true,
+					DtmfInband:  false,
+					DtmfSipInfo: false,
+					Codecs: func(uuids ...uuid.UUID) []uuid.UUID {
+						sort.Slice(uuids, func(i, j int) bool {
+							return rand.Int()&1 == 1
+						})
+						return uuids[:i%4]
+					}(cid1, cid2, cid3),
+				},
+			})
+			if err != nil {
+				return
+			}
 		}
-	}
 
-	wg.Wait()
+		wg.Wait()
+
+		log.Println()
+		log.Println("ERRORS", e)
+		log.Println()
+	}
 
 	return
 }
