@@ -32,18 +32,24 @@ func do(ctx context.Context) {
 	}
 	defer conn.Close()
 
-	stmt, err := db.PrepareNamedContext(ctx, "INSERT INTO protocol(code,name) values(:code0,:name0)")
+	stmt1, err := db.PrepareNamedContext(ctx, "INSERT INTO protocol(code,name) values(:code0,:name0)")
 	if err != nil {
-		log.Fatalln("PrepareNamedContext", err)
+		log.Fatalln("PrepareNamedContext", 1, err)
 	}
-	defer stmt.Close()
+	defer stmt1.Close()
+
+	stmt2, err := db.PrepareNamedContext(ctx, "INSERT INTO protocol(code,name) values(:code0,:name0)")
+	if err != nil {
+		log.Fatalln("PrepareNamedContext", 2, err)
+	}
+	defer stmt2.Close()
 
 	tx1, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		log.Fatalln("BeginTxx", 1, err)
 	}
 
-	_, err = tx1.NamedStmtContext(ctx, stmt).ExecContext(ctx, map[string]interface{}{"code0": "asd", "name0": "ASD"})
+	_, err = tx1.NamedStmtContext(ctx, stmt1).ExecContext(ctx, map[string]interface{}{"code0": "asd", "name0": "ASD"})
 	if err != nil {
 		log.Fatalln("NamedStmtContext.ExecContext", 1, err)
 	}
@@ -53,15 +59,15 @@ func do(ctx context.Context) {
 		log.Fatalln("BeginTxx", 2, err)
 	}
 
-	_, err = tx2.NamedStmtContext(ctx, stmt).ExecContext(ctx, map[string]interface{}{"code0": "qwe", "name0": "QWE"})
+	_, err = tx2.NamedStmtContext(ctx, stmt1).ExecContext(ctx, map[string]interface{}{"code0": "qwe", "name0": "QWE"})
 	if err != nil {
 		log.Fatalln("NamedStmtContext.ExecContext", 2, 1, err)
 	}
-	_, err = tx2.NamedStmtContext(ctx, stmt).ExecContext(ctx, map[string]interface{}{"code0": "wer", "name0": "WER"})
+	_, err = tx2.NamedStmtContext(ctx, stmt1).ExecContext(ctx, map[string]interface{}{"code0": "wer", "name0": "WER"})
 	if err != nil {
 		log.Fatalln("NamedStmtContext.ExecContext", 2, 2, err)
 	}
-	_, err = tx2.NamedStmtContext(ctx, stmt).ExecContext(ctx, map[string]interface{}{"code0": "ert", "name0": "ERT"})
+	_, err = tx2.NamedStmtContext(ctx, stmt1).ExecContext(ctx, map[string]interface{}{"code0": "ert", "name0": "ERT"})
 	if err != nil {
 		log.Fatalln("NamedStmtContext.ExecContext", 2, 3, err)
 	}
@@ -81,7 +87,7 @@ func do(ctx context.Context) {
 	wg.Add(5)
 
 	for j := 0; j < 5; j++ {
-		go run(ctx, stmt, j, &wg, &bg)
+		go run(ctx, stmt1, j, &wg, &bg)
 	}
 
 	fmt.Println("Press Ctrl+С")
