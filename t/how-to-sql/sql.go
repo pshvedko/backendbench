@@ -12,10 +12,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func main() {
-	do(context.TODO())
-}
-
 func do(ctx context.Context) {
 
 	db, err := sqlx.Open("pgx", "postgres://ivasw:ivasw@127.0.0.1:5432/ivasw")
@@ -24,13 +20,20 @@ func do(ctx context.Context) {
 	}
 	defer db.Close()
 
-	db.SetMaxOpenConns(3)
+	db.SetMaxOpenConns(33)
 
 	conn, err := db.Connx(ctx)
 	if err != nil {
 		log.Fatalln("ConnX", err)
 	}
 	defer conn.Close()
+
+	defer func() {
+		_, err = conn.ExecContext(ctx, "DELETE FROM protocol WHERE code not in ($1,$2)", "sip", "h323")
+		if err != nil {
+			log.Fatalln("ExecContext", err)
+		}
+	}()
 
 	stmt1, err := db.PrepareNamedContext(ctx, "INSERT INTO protocol(code,name) values(:code0,:name0)")
 	if err != nil {
@@ -72,6 +75,17 @@ func do(ctx context.Context) {
 		log.Fatalln("NamedStmtContext.ExecContext", 2, 3, err)
 	}
 
+	stmtX, err := tx2.PrepareNamedContext(ctx, "INSERT INTO protocol(code,name) values(:code0,:name0)")
+	if err != nil {
+		log.Fatalln("PrepareNamedContext", 3, err)
+	}
+	defer stmtX.Close()
+
+	_, err = stmtX.ExecContext(ctx, map[string]interface{}{"code0": "xxx", "name0": "XXX"})
+	if err != nil {
+		log.Fatalln("NamedStmtContext.ExecContext", 3, 1, err)
+	}
+
 	err = tx1.Commit()
 	if err != nil {
 		log.Fatalln("Commit", 1, err)
@@ -82,12 +96,17 @@ func do(ctx context.Context) {
 		log.Fatalln("Commit", 2, err)
 	}
 
+	_, err = stmtX.ExecContext(ctx, map[string]interface{}{"code0": "zzz", "name0": "ZZZ"})
+	if err != nil {
+		log.Println("NamedStmtContext.ExecContext", 3, 2, err)
+	}
+
 	var wg, bg sync.WaitGroup
 	bg.Add(5)
 	wg.Add(5)
 
 	for j := 0; j < 5; j++ {
-		go run(ctx, stmt1, j, &wg, &bg)
+		// go run(ctx, stmt2, j, &wg, &bg)
 	}
 
 	fmt.Println("Press Ctrl+С")
@@ -97,12 +116,6 @@ func do(ctx context.Context) {
 	case <-sig.Done():
 		done()
 	}
-
-	_, err = conn.ExecContext(ctx, "DELETE FROM protocol WHERE code not in ($1,$2)", "sip", "h323")
-	if err != nil {
-		log.Fatalln("ExecContext", err)
-	}
-
 }
 
 func run(ctx context.Context, stmt *sqlx.NamedStmt, j int, wg, bg *sync.WaitGroup) {
@@ -119,4 +132,8 @@ func run(ctx context.Context, stmt *sqlx.NamedStmt, j int, wg, bg *sync.WaitGrou
 			log.Fatalln("ExecContext", i, err)
 		}
 	}
+}
+
+func main() {
+	do(context.TODO())
 }
