@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	_ "github.com/jackc/pgx/stdlib"
+	"github.com/jmoiron/sqlx"
 	"log"
 	"os/signal"
 	"sync"
 	"syscall"
-
-	_ "github.com/jackc/pgx/stdlib"
-	"github.com/jmoiron/sqlx"
+	"time"
 )
 
 func do(ctx context.Context) {
@@ -22,14 +22,14 @@ func do(ctx context.Context) {
 
 	db.SetMaxOpenConns(33)
 
-	conn, err := db.Connx(ctx)
+	conn1, err := db.Connx(ctx)
 	if err != nil {
 		log.Fatalln("ConnX", err)
 	}
-	defer conn.Close()
+	defer conn1.Close()
 
 	defer func() {
-		_, err = conn.ExecContext(ctx, "DELETE FROM protocol WHERE code not in ($1,$2)", "sip", "h323")
+		_, err = conn1.ExecContext(ctx, "DELETE FROM protocol WHERE code not in ($1,$2)", "sip", "h323")
 		if err != nil {
 			log.Fatalln("ExecContext", err)
 		}
@@ -96,18 +96,35 @@ func do(ctx context.Context) {
 		log.Fatalln("Commit", 2, err)
 	}
 
-	_, err = stmtX.ExecContext(ctx, map[string]interface{}{"code0": "zzz", "name0": "ZZZ"})
-	if err != nil {
-		log.Println("NamedStmtContext.ExecContext", 3, 2, err)
-	}
-
 	var wg, bg sync.WaitGroup
 	bg.Add(5)
 	wg.Add(5)
 
 	for j := 0; j < 5; j++ {
-		// go run(ctx, stmt2, j, &wg, &bg)
+		go run(ctx, stmt2, j, &wg, &bg)
 	}
+
+	wg.Wait()
+
+	_, err = stmtX.ExecContext(ctx, map[string]interface{}{"code0": "zzz", "name0": "ZZZ"})
+	if err != nil {
+		log.Println("NamedStmtContext.ExecContext", 3, 2, err)
+	}
+
+	db.SetMaxOpenConns(1 + 1) // conn1 + stmt3
+
+	stmt3, err := db.PrepareNamedContext(ctx, "SELECT * FROM protocol LIMIT 10")
+	if err != nil {
+		log.Fatalln("PrepareNamedContext", 3, err)
+	}
+
+	bg.Add(2)
+	wg.Add(2)
+
+	go row(ctx, stmt3, 0, &wg, &bg)
+	go row(ctx, stmt3, 1, &wg, &bg)
+
+	wg.Wait()
 
 	fmt.Println("Press Ctrl+С")
 
@@ -118,10 +135,35 @@ func do(ctx context.Context) {
 	}
 }
 
+func row(ctx context.Context, stmt *sqlx.NamedStmt, j int, wg, bg *sync.WaitGroup) {
+	defer wg.Done()
+	bg.Done()
+	bg.Wait()
+	log.Println("===>row(", j, ")")
+	rows, err := stmt.QueryContext(ctx, map[string]interface{}{})
+	if err != nil {
+		log.Fatalln("QueryContext", j, err)
+	}
+	for rows.Next() {
+		time.Sleep(time.Second / 2)
+		var a, b, c, d string
+		err = rows.Scan(&a, &b, &c, &d)
+		if err != nil {
+			log.Fatalln("Scan", j, err)
+		}
+		log.Println(j, a, b, c, d)
+	}
+	err = rows.Close()
+	if err != nil {
+		log.Fatalln("Close", j, err)
+	}
+}
+
 func run(ctx context.Context, stmt *sqlx.NamedStmt, j int, wg, bg *sync.WaitGroup) {
 	defer wg.Done()
 	bg.Done()
 	bg.Wait()
+	log.Println("===>run(", j, ")")
 	for i := 0; i < 99; i++ {
 		x := fmt.Sprintf("%d%02d", j, i)
 		_, err := stmt.ExecContext(ctx, map[string]interface{}{
@@ -129,7 +171,7 @@ func run(ctx context.Context, stmt *sqlx.NamedStmt, j int, wg, bg *sync.WaitGrou
 			"name0": x,
 		})
 		if err != nil {
-			log.Fatalln("ExecContext", i, err)
+			log.Fatalln("ExecContext", j, i, err)
 		}
 	}
 }
