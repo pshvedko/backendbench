@@ -104,7 +104,7 @@ func run() (err error) {
 	cid3 := uuid.MustParse("3e7ddb68-a3c4-46e2-a721-e0e4c228732e")
 
 	{
-		for i := 0; i < 1; i++ {
+		for i := 0; i < 999; i++ {
 			wg.Add(1)
 
 			err = ws.Emit("query", Query{
