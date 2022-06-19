@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"math/rand"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -72,12 +74,21 @@ func run() (err error) {
 		return
 	}
 
-	n, e := 0, 0
+	n, e, x, z := 0, 0, 0, 0
+
+	var tt sync.Map
 
 	err = ws.On("response", func(c *gosocketio.Channel, reply Reply) {
 		log.Printf("response %d %#v", n, reply)
 		if reply.Error != nil {
 			e++
+		} else {
+			v, ok := tt.LoadAndDelete(reply.Id)
+			if !ok {
+				x++
+			} else if !equalUpdateCodecGroupParams(reply.Result, v) {
+				z++
+			}
 		}
 		n++
 		wg.Done()
@@ -107,23 +118,31 @@ func run() (err error) {
 		for i := 0; i < 999; i++ {
 			wg.Add(1)
 
+			codecs := func(uuids ...uuid.UUID) []uuid.UUID {
+				sort.Slice(uuids, func(i, j int) bool {
+					return rand.Int()&1 == 1
+				})
+				return uuids[:i%4]
+			}(cid1, cid2, cid3)
+
+			params := UpdateCodecGroupParams{
+				Id:          gid1,
+				Name:        "default-audio-codec-group",
+				Type:        "audio",
+				DtmfRfc2833: true,
+				DtmfInband:  false,
+				DtmfSipInfo: false,
+				Codecs:      codecs,
+			}
+
+			id := uuid.New()
+
+			tt.Store(id, params)
+
 			err = ws.Emit("query", Query{
-				Id:     uuid.New(),
+				Id:     id,
 				Method: "updateCodecGroup",
-				Params: UpdateCodecGroupParams{
-					Id:          gid1,
-					Name:        "default-audio-codec-group",
-					Type:        "audio",
-					DtmfRfc2833: true,
-					DtmfInband:  false,
-					DtmfSipInfo: false,
-					Codecs: func(uuids ...uuid.UUID) []uuid.UUID {
-						sort.Slice(uuids, func(i, j int) bool {
-							return rand.Int()&1 == 1
-						})
-						return uuids[:i%4]
-					}(cid1, cid2, cid3),
-				},
+				Params: params,
 			})
 			if err != nil {
 				return
@@ -133,11 +152,36 @@ func run() (err error) {
 		wg.Wait()
 
 		log.Println()
-		log.Println("ERRORS", e)
+		log.Println("ERRORS", e, z, x)
 		log.Println()
 	}
 
 	return
+}
+
+func equalUpdateCodecGroupParams(r, v any) bool {
+	b, err := json.Marshal(r)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var u UpdateCodecGroupParams
+	err = json.Unmarshal(b, &u)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(u.Codecs) == 0 {
+		u.Codecs = []uuid.UUID{}
+	}
+
+	ok := reflect.DeepEqual(u, v)
+	if !ok {
+		log.Printf("expext === %#v", v)
+		log.Printf("actual === %#v", u)
+	}
+
+	return ok
 }
 
 func main() {
