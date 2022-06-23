@@ -16,7 +16,7 @@ import (
 	"github.com/iancoleman/strcase"
 )
 
-//go:embed stringer.go.tmpl
+//go:embed stringer.go.tmp
 var tmpFS embed.FS
 
 func tagParse(tag, key string) (*structtag.Tag, error) {
@@ -138,7 +138,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tmp, err := template.ParseFS(tmpFS)
+	tmp, err := template.ParseFS(tmpFS, "*")
 	if err != nil {
 		log.Fatal(err)
 	}
