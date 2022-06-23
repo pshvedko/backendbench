@@ -1,6 +1,6 @@
 module github.com/pshvedko/backendbench
 
-go 1.18
+go 1.17
 
 require (
 	github.com/ambelovsky/gosf-socketio v0.0.0-20201109193639-add9d32f8b19

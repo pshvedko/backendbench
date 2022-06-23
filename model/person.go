@@ -30,5 +30,5 @@ type Person struct {
 	Fruit2 []uint         `json:"fruit2"`
 	Fruit3 *[0][]*url.URL `json:"fruit3"`
 
-	qq http.Handler
+	Handler http.Handler
 }

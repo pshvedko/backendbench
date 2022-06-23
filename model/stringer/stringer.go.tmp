@@ -5,12 +5,12 @@ import (
 	"strings"
 )
 
-func (obj *{{.Type}}) String() string {
+func (obj {{.Type}}) String() string {
 	b := &strings.Builder{}
 	b.WriteByte('{'){{range .Fields}}{{if not .First}}
 	b.WriteByte(',')
 	b.WriteByte(' '){{end}}
-	_, _ = fmt.Fprintf(b, "%s:%v", "{{.Alias}}", obj.{{.Name}}){{end}}
+	_, _ = fmt.Fprintf(b, "%q:%v", "{{.Alias}}", obj.{{.Name}}){{end}}
 	b.WriteByte('}')
 	return b.String()
 }

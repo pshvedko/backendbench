@@ -30,7 +30,7 @@ func tagParse(tag, key string) (*structtag.Tag, error) {
 type modifier int
 
 const (
-	None = iota
+	_ = iota
 	Pointer
 	Array
 )
@@ -160,7 +160,6 @@ func main() {
 		log.Fatal(err)
 	}
 	defer out.Close()
-	defer out.Sync()
 
 	var buf bytes.Buffer
 	err = tmp.Execute(&buf, map[string]interface{}{
