@@ -2,24 +2,22 @@ package main
 
 import (
 	"bytes"
+	"embed"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"log"
 	"os"
 	"strings"
 	"text/template"
 
-	"go/ast"
-	"go/parser"
-	"go/token"
-
 	"github.com/fatih/structtag"
 	"github.com/iancoleman/strcase"
 )
 
-import _ "embed"
-
 //go:embed stringer.go.tmpl
-var stringer string
+var tmpFS embed.FS
 
 func tagParse(tag, key string) (*structtag.Tag, error) {
 	t, err := structtag.Parse(tag[1 : len(tag)-1])
@@ -140,7 +138,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tmp, err := template.New("stringer").Parse(stringer)
+	tmp, err := template.ParseFS(tmpFS)
 	if err != nil {
 		log.Fatal(err)
 	}
