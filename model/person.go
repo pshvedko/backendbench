@@ -4,6 +4,7 @@ package model
 
 import (
 	"github.com/google/uuid"
+	"net/http"
 	"net/url"
 	"time"
 )
@@ -28,4 +29,6 @@ type Person struct {
 	Fruit  []string       `json:"fruit"`
 	Fruit2 []uint         `json:"fruit2"`
 	Fruit3 *[0][]*url.URL `json:"fruit3"`
+
+	qq http.Handler
 }
