@@ -140,18 +140,18 @@ func row(ctx context.Context, stmt *sqlx.NamedStmt, j int, wg, bg *sync.WaitGrou
 	bg.Done()
 	bg.Wait()
 	log.Println("===>row(", j, ")")
-	rows, err := stmt.QueryContext(ctx, map[string]interface{}{})
+	rows, err := stmt.QueryxContext(ctx, map[string]interface{}{})
 	if err != nil {
 		log.Fatalln("QueryContext", j, err)
 	}
 	for rows.Next() {
 		time.Sleep(time.Second / 2)
-		var a, b, c, d string
-		err = rows.Scan(&a, &b, &c, &d)
+		f := map[string]interface{}{}
+		err = rows.MapScan(f)
 		if err != nil {
 			log.Fatalln("Scan", j, err)
 		}
-		log.Println(j, a, b, c, d)
+		log.Println(j, f)
 	}
 	err = rows.Close()
 	if err != nil {
