@@ -7,9 +7,25 @@ import (
 	"time"
 )
 
-const URL = nats.DefaultURL + "1"
+const URL = nats.DefaultURL
+
+// INFO[0000] Listening on [swl_backend], clientID=[swl-backend_undroid-home-lan_U5iqcr8h09]  broadcast=false
+// INFO[0000] Listening on [swl_backend:undroid.home.lan], clientID=[swl-backend_undroid-home-lan_U5iqcr8h09]  broadcast=false
+// INFO[0000] Listening on [swl_backend:undroid.home.lan:U5iqcr8h09], clientID=[swl-backend_undroid-home-lan_U5iqcr8h09]  broadcast=false
+// INFO[0000] Listening on [@swl_backend], clientID=[swl-backend_undroid-home-lan_U5iqcr8h09]  broadcast=true
+// INFO[0000] Listening on [@swl_backend:undroid.home.lan], clientID=[swl-backend_undroid-home-lan_U5iqcr8h09]  broadcast=true
 
 func main() {
+	nc, err := nats.Connect(URL)
+	if err != nil {
+		log.Fatal(1, err)
+	}
+	defer nc.Close()
+
+	//err = nc.Publish("swl_backend:undroid.home.lan")
+}
+
+func main1() {
 	nc, err := nats.Connect(URL)
 	if err != nil {
 		log.Fatal(1, err)

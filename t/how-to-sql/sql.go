@@ -29,7 +29,7 @@ func do(ctx context.Context) {
 	defer conn1.Close()
 
 	defer func() {
-		_, err = conn1.ExecContext(ctx, "DELETE FROM protocol WHERE code not in ($1,$2)", "sip", "h323")
+		_, err = conn1.ExecContext(ctx, "DELETE FROM protocol WHERE code not in ($1)", []string{"sip", "h323"})
 		if err != nil {
 			log.Fatalln("ExecContext", err)
 		}
@@ -113,7 +113,7 @@ func do(ctx context.Context) {
 
 	db.SetMaxOpenConns(1 + 1) // conn1 + stmt3
 
-	stmt3, err := db.PrepareNamedContext(ctx, "SELECT * FROM protocol LIMIT 10")
+	stmt3, err := db.PrepareNamedContext(ctx, "SELECT *, now() AS selected FROM protocol LIMIT 10")
 	if err != nil {
 		log.Fatalln("PrepareNamedContext", 3, err)
 	}
@@ -151,7 +151,7 @@ func row(ctx context.Context, stmt *sqlx.NamedStmt, j int, wg, bg *sync.WaitGrou
 		if err != nil {
 			log.Fatalln("Scan", j, err)
 		}
-		log.Println(j, f)
+		log.Printf("%v %#v", j, f)
 	}
 	err = rows.Close()
 	if err != nil {
