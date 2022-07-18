@@ -86,23 +86,13 @@ func equalUpdateCodecGroupParams(r, v interface{}) bool {
 type Client struct {
 	*gosocketio.Client
 	sync.WaitGroup
-	n   int
-	e   int
-	fly chan struct{}
+	sync.Map
+	n int
+	e int
 }
 
 func (c *Client) onLogin(_ *gosocketio.Channel, reply Token) {
-	log.Printf("login %#v", reply)
-	c.Done()
-}
-
-func (c *Client) onResponse(_ *gosocketio.Channel, reply Reply) {
-	log.Printf("response %d %#v", c.n, reply)
-	if reply.Error != nil {
-		c.e++
-	}
-	c.n++
-	<-c.fly
+	log.Printf("login %v", reply)
 	c.Done()
 }
 
@@ -119,7 +109,39 @@ func (c *Client) Login(email, password string) error {
 	return nil
 }
 
-func NewClient(url string, fly int) (*Client, error) {
+type Callback func(map[string]interface{}, map[string]interface{}, map[string]interface{})
+
+func (c *Client) onReply(_ *gosocketio.Channel, reply Reply) {
+	log.Printf("[%08d] %v", c.n, reply)
+	if reply.Error != nil {
+		c.e++
+	}
+	c.n++
+	v, ok := c.LoadAndDelete(reply.Id)
+	if ok {
+		switch v := v.(type) {
+		case Callback:
+			// TODO
+			v(nil, nil, nil)
+		default:
+			panic(v)
+		}
+	}
+	c.Done()
+}
+
+func (c *Client) Query(method string, params interface{}, callback Callback) error {
+	c.Add(1)
+	id := uuid.New()
+	c.Store(id, callback)
+	return c.Emit("query", Query{
+		Id:     id,
+		Method: method,
+		Params: params,
+	})
+}
+
+func NewClient(url string) (*Client, error) {
 	c, err := gosocketio.Dial(url,
 		&transport.WebsocketTransport{
 			PingInterval:   transport.WsDefaultPingInterval,
@@ -135,12 +157,11 @@ func NewClient(url string, fly int) (*Client, error) {
 	}
 	return &Client{
 		Client: c,
-		fly:    make(chan struct{}, fly),
 	}, nil
 }
 
 func run() error {
-	c, err := NewClient("ws://localhost:8080/socket.io/?EIO=3&transport=websocket", 99)
+	c, err := NewClient("ws://localhost:8080/socket.io/?EIO=3&transport=websocket")
 	if err != nil {
 		return err
 	}
@@ -150,11 +171,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	err = c.On("response", c.onResponse)
+	err = c.On("response", c.onReply)
 	if err != nil {
 		return err
 	}
-	err = c.On("event", c.onResponse)
+	err = c.On("event", c.onReply)
 	if err != nil {
 		return err
 	}
@@ -163,6 +184,26 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	fly := make(chan struct{}, 99)
+
+	for i := 0; i < 9999; i++ {
+		fly <- struct{}{}
+		err = c.Query("listCodecGroups", ListParams{
+			Filter: []Clause{{
+				Field: "type",
+				Value: "audio",
+				Op:    "EQUALS",
+			}},
+		}, func(result, params, err map[string]interface{}) {
+			<-fly
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	c.Wait()
 
 	//n, e, x, z := 0, 0, 0, 0
 	//
@@ -283,10 +324,10 @@ func run() error {
 	//
 	//	wg.Wait()
 	//}
-	//
-	//log.Println()
-	//log.Println("ERRORS", e, z, x)
-	//log.Println()
+
+	log.Println()
+	log.Println("ERRORS", c.e, c.n)
+	log.Println()
 
 	return nil
 }
